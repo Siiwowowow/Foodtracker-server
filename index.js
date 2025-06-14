@@ -2,11 +2,38 @@ require('dotenv').config();
 const express = require('express')
 const cors = require('cors')
 const app = express()
+const jwt=require('jsonwebtoken')
+const cookieParser=require('cookie-parser')
 const port =process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
-app.use(cors());
+
+app.use(cors({
+  origin:['http://localhost:5173'],
+  credentials:true
+}));
 app.use(express.json());
+app.use(cookieParser())
+const logger=(req,res,next)=>{
+  console.log('inside the token midel ware')
+  next()
+}
+
+const verifyToken=(req,res,next)=>{
+  const token=req?.cookies?.token
+  console.log(req.cookie)
+  if(!token){
+    return res.status(401).send({massage:'unauthorized Access'})
+  }
+  jwt.verify(token,process.env.JWT_ACCESS_SECRET,(err,decoded)=>{
+    if(err){
+      return res.status(401).send({massage:'unauthorized Access'})
+    }
+    req.decoded=decoded;
+    next();
+  })
+}
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ikrarq7.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -22,15 +49,38 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     await client.connect();
     const foodsCollection = client.db("food_tracker").collection("foods");
-    app.get('/foods', async (req, res) => {
-      const email = req.query.email;
+    const reviewCollection = client.db("food_tracker").collection("review");
+      //jwt api
+      app.post('/jwt',async(req,res)=>{
+        const userInfo=req.body;
+        const token=jwt.sign(userInfo,process.env.JWT_ACCESS_SECRET,{
+          expiresIn:'2h'
+        })
+        res.cookie('token',token,{
+          httpOnly:true,
+          secure:false
+        })
+        res.send({success:true})
+      })
+    //foods api
+    app.get('/foods', verifyToken,logger, async (req, res) => {
+      const { searchParams, email } = req.query;
       const query = {};
-      if (email) {
-       query.userEmail = email;
+    
+      if (searchParams) {
+        query.foodTitle = { $regex: searchParams, $options: 'i' };
       }
+    
+      if (email) {
+        query.userEmail = email;
+      }
+    console.log('query',query);
       const result = await foodsCollection.find(query).toArray();
       res.send(result);
     });
+    
+    
+
    app.get('/foods/limit', async (req, res) => {
   try {
     const currentDate = new Date();
@@ -47,7 +97,21 @@ async function run() {
     res.status(500).send('Internal Server Error');
   }
 });
-
+// Add this route before the app.listen()
+app.get('/foods/expired', async (req, res) => {
+  try {
+    const currentDate = new Date().toISOString();
+    const result = await foodsCollection.find({
+      expiryDate: { $lt: currentDate } // Finds foods where expiryDate is less than current date
+    })
+    .toArray();
+    
+    res.send(result);
+  } catch (error) {
+    console.error('Error fetching expired foods:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
   app.get('/foods/:id', async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
@@ -59,13 +123,15 @@ async function run() {
       const result = await foodsCollection.insertOne(newFood);
       res.send(result);
     });
-    app.delete('/foods/:id',async (req,res)=>{
+    
+    //food delete api
+    app.delete('/foods/:id',verifyToken,logger,async (req,res)=>{
       const id=req.params.id
       const query={_id:new ObjectId(id)}
       const result=await foodsCollection.deleteOne(query)
       res.send(result)
     })
-    app.put('/foods/:id', async (req, res) => {
+    app.put('/foods/:id',verifyToken,logger, async (req, res) => {
       const id = req.params.id;
       const updatedFood = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -76,6 +142,48 @@ async function run() {
       const result = await foodsCollection.updateOne(filter, updateDoc, options);
       res.send(result);
     });
+    //note section
+    
+//review api
+    app.post('/review', verifyToken, async (req, res) => {
+  try {
+    const review = req.body;
+    const userEmail = req.decoded.email; // Get email from verified token
+    
+    // Verify the user added the food item they're commenting on
+    const foodItem = await foodsCollection.findOne({
+      foodTitle: review.foodItem,
+      userEmail: userEmail
+    });
+    
+    if (!foodItem) {
+      return res.status(403).send({ message: 'You can only add notes to items you added' });
+    }
+    
+    // Add user email to the review for tracking
+    review.userEmail = userEmail;
+    review.postedDate = new Date().toISOString();
+    
+    const result = await reviewCollection.insertOne(review);
+    res.send(result);
+  } catch (error) {
+    console.error('Error adding review:', error);
+    res.status(500).send({ message: 'Internal server error' });
+  }
+});
+
+    app.get('/review', async (req, res) => {
+  const { foodItem } = req.query;
+  const query = {};
+  
+  if (foodItem) {
+    query.foodItem = foodItem;
+  }
+  
+  const result = await reviewCollection.find(query).toArray();
+  res.send(result);
+});
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
