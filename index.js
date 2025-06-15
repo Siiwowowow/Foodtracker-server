@@ -9,7 +9,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 
 app.use(cors({
-  origin:['http://localhost:5174'],
+  origin:['http://localhost:5173','https://food-tracker-auth.web.app'],
   credentials:true
 }));
 app.use(express.json());
@@ -21,7 +21,7 @@ const logger=(req,res,next)=>{
 
 const verifyToken=(req,res,next)=>{
   const token=req?.cookies?.token
-  console.log(req.cookie)
+  console.log({token})
   if(!token){
     return res.status(401).send({massage:'unauthorized Access'})
   }
@@ -47,18 +47,19 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     const foodsCollection = client.db("food_tracker").collection("foods");
     const reviewCollection = client.db("food_tracker").collection("review");
       //jwt api
       app.post('/jwt',async(req,res)=>{
         const userInfo=req.body;
         const token=jwt.sign(userInfo,process.env.JWT_ACCESS_SECRET,{
-          expiresIn:'2h'
+          expiresIn:'5000h'
         })
         res.cookie('token',token,{
           httpOnly:true,
-          secure:false
+          secure: process.env.NODE_ENV === "production" ? true: false,
+        sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
         })
         res.send({success:true})
       })
