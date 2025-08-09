@@ -54,7 +54,7 @@ async function run() {
       app.post('/jwt',async(req,res)=>{
         const userInfo=req.body;
         const token=jwt.sign(userInfo,process.env.JWT_ACCESS_SECRET,{
-          expiresIn:'5000h'
+          expiresIn:'500000h'
         })
         res.cookie('token',token,{
           httpOnly:true,
@@ -64,7 +64,7 @@ async function run() {
         res.send({success:true})
       })
     //foods api
-    app.get('/foods', verifyToken,logger, async (req, res) => {
+    app.get('/foods',verifyToken,logger,  async (req, res) => {
       const { searchParams, email } = req.query;
       const query = {};
     
@@ -82,7 +82,7 @@ async function run() {
     
     
 
-   app.get('/foods/limit', async (req, res) => {
+   app.get('/foods/limit',verifyToken,logger, async (req, res) => {
   try {
     const currentDate = new Date();
     const result = await foodsCollection.find({
@@ -143,7 +143,36 @@ app.get('/foods/expired', async (req, res) => {
       const result = await foodsCollection.updateOne(filter, updateDoc, options);
       res.send(result);
     });
-    //note section
+    
+    app.patch('/like/:foodId', async (req, res) => {
+  const id = req.params.foodId;
+  const email = req.body.userEmail;
+
+  if (!email) {
+    return res.status(400).send({ message: 'userEmail is required' });
+  }
+
+  const filter = { _id: new ObjectId(id) };
+  const food = await foodsCollection.findOne(filter);
+
+  if (!food) {
+    return res.status(404).send({ message: 'Food not found' });
+  }
+
+  const alreadyLiked = food.likedBy?.includes(email);
+
+  const updateDoc = alreadyLiked
+    ? { $pull: { likedBy: email } }
+    : { $addToSet: { likedBy: email } };
+
+  await foodsCollection.updateOne(filter, updateDoc);
+
+  res.send({
+    message: alreadyLiked ? 'Dislike Successful' : 'Like Successful',
+    liked: !alreadyLiked,
+  });
+});
+
     
 //review api
     app.post('/review', verifyToken, async (req, res) => {
