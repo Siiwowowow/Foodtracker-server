@@ -154,7 +154,7 @@ app.get('/send-login-email', async (req, res) => {
     });
 
     // Foods API
-    app.get('/foods', verifyToken, async (req, res) => {
+    app.get('/foods',  async (req, res) => {
       const { searchParams, email } = req.query;
       const query = {};
 
