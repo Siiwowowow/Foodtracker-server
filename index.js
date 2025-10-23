@@ -4,6 +4,7 @@ const cors = require('cors')
 const jwt = require('jsonwebtoken')
 const app = express()
 const cookieParser = require('cookie-parser')
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const port = process.env.PORT || 3000;
@@ -77,7 +78,35 @@ async function run() {
       })
       res.send({ success: true, message: 'Logged out successfully' })
     })
+    //node mailer setup
+  const emailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
 
+app.get('/send-login-email', async (req, res) => {
+  const { email } = req.query;
+  if (!email) return res.status(400).send('Email is required');
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Login Notification - Food Tracker',
+    html: `<p>Welcome! You logged in successfully.</p>`,
+  };
+
+  try {
+    await emailTransporter.sendMail(mailOptions);
+    console.log('Email sent to', email);
+    res.send('Email sent successfully');
+  } catch (err) {
+    console.error('Error sending email', err);
+    res.status(500).send('Failed to send email');
+  }
+});
     // AI Chat API
     app.post("/ai-chat", async (req, res) => {
       try {
@@ -122,11 +151,6 @@ async function run() {
         console.error("AI Chat Error:", err);
         res.status(500).send({ success: false, error: err.message });
       }
-    });
-
-    // Test AI Route
-    app.get("/test-ai", (req, res) => {
-      res.send({ message: "AI route is working!" });
     });
 
     // Foods API
@@ -252,21 +276,23 @@ async function run() {
 
     // Get foods that are expiring soon (within next 5 days)
     app.get('/foods/expiring-soon', async (req, res) => {
-      try {
-        const now = new Date();
-        const fiveDaysLater = new Date();
-        fiveDaysLater.setDate(now.getDate() + 5);
+  try {
+    const now = new Date();
+    const fiveDaysLater = new Date();
+    fiveDaysLater.setDate(now.getDate() + 5);
 
-        const result = await foodsCollection.find({
-          expiryDate: { $gte: now.toISOString(), $lte: fiveDaysLater.toISOString() }
-        }).toArray();
+    // MongoDB date field এর সাথে Date object ব্যবহার করতে হবে
+    const result = await foodsCollection.find({
+      expiryDate: { $gte: now, $lte: fiveDaysLater }
+    }).toArray();
 
-        res.send(result);
-      } catch (error) {
-        console.error('Error fetching expiring soon foods:', error);
-        res.status(500).send('Internal Server Error');
-      }
-    });
+    res.send(result);
+  } catch (error) {
+    console.error('Error fetching expiring soon foods:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 
     // Like/Unlike food with notification
    // Fixed Like/Unlike endpoint
@@ -413,7 +439,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
 
     // ================= COMPLETE NOTIFICATION SYSTEM =================
     
-    // Helper function to create notifications
+ // Helper function to create notifications
     async function createNotification(notificationData) {
       try {
         const notification = {
@@ -435,7 +461,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
       }
     }
 
-    // Get all notifications for user
+    // Get all notifications for user - FIXED
     app.get('/notifications', verifyToken, async (req, res) => {
       try {
         const userEmail = req.decoded.email;
