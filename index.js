@@ -210,7 +210,7 @@ app.get('/send-login-email', async (req, res) => {
     });
 
     // Create notification when food is added
-    app.post('/foods', verifyToken, async (req, res) => {
+    app.post('/foods', async (req, res) => {
       try {
         const newFood = req.body;
         const userEmail = req.decoded.email;
@@ -235,7 +235,7 @@ app.get('/send-login-email', async (req, res) => {
     });
 
     // Food delete API
-    app.delete('/foods/:id', verifyToken, logger, async (req, res) => {
+    app.delete('/foods/:id',  logger, async (req, res) => {
       try {
         const id = req.params.id;
         const userEmail = req.decoded.email;
@@ -262,7 +262,7 @@ app.get('/send-login-email', async (req, res) => {
       }
     });
 
-    app.put('/foods/:id', verifyToken, logger, async (req, res) => {
+    app.put('/foods/:id',  logger, async (req, res) => {
       const id = req.params.id;
       const updatedFood = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -296,7 +296,7 @@ app.get('/send-login-email', async (req, res) => {
 
     // Like/Unlike food with notification
    // Fixed Like/Unlike endpoint
-app.patch('/like/:foodId', verifyToken, async (req, res) => {
+app.patch('/like/:foodId',  async (req, res) => {
   try {
     const foodId = req.params.foodId;
     const userEmail = req.decoded.email; // From token verification
@@ -389,7 +389,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
 });
 
     // Review API with notification
-    app.post('/review', verifyToken, async (req, res) => {
+    app.post('/review',  async (req, res) => {
       try {
         const review = req.body;
         const userEmail = req.decoded.email;
@@ -462,7 +462,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
     }
 
     // Get all notifications for user - FIXED
-    app.get('/notifications', verifyToken, async (req, res) => {
+    app.get('/notifications',  async (req, res) => {
       try {
         const userEmail = req.decoded.email;
         const result = await notificationsCollection.find({ 
@@ -476,7 +476,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
     });
 
     // Get unread notification count
-    app.get('/notifications/count', verifyToken, async (req, res) => {
+    app.get('/notifications/count',  async (req, res) => {
       try {
         const userEmail = req.decoded.email;
         const count = await notificationsCollection.countDocuments({ 
@@ -491,7 +491,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
     });
 
     // Mark notifications as read
-    app.put('/notifications/mark-read', verifyToken, async (req, res) => {
+    app.put('/notifications/mark-read', async (req, res) => {
       try {
         const userEmail = req.decoded.email;
         const result = await notificationsCollection.updateMany(
@@ -506,7 +506,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
     });
 
     // Mark single notification as read
-    app.put('/notifications/:id/read', verifyToken, async (req, res) => {
+    app.put('/notifications/:id/read',  async (req, res) => {
       try {
         const id = req.params.id;
         const userEmail = req.decoded.email;
@@ -528,7 +528,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
     });
 
     // Delete a single notification
-    app.delete('/notifications/:id', verifyToken, async (req, res) => {
+    app.delete('/notifications/:id',  async (req, res) => {
       try {
         const id = req.params.id;
         const userEmail = req.decoded.email;
@@ -552,7 +552,7 @@ app.patch('/like/:foodId', verifyToken, async (req, res) => {
     });
 
     // Delete all notifications for user
-    app.delete('/notifications', verifyToken, async (req, res) => {
+    app.delete('/notifications',  async (req, res) => {
       try {
         const userEmail = req.decoded.email;
         const result = await notificationsCollection.deleteMany({ 
